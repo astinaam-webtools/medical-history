@@ -32,8 +32,12 @@ class Settings(BaseSettings):
     OPENROUTER_API_URL: str = "https://openrouter.ai/api/v1/chat/completions"
     DEFAULT_AI_MODEL: str = "google/gemini-flash-1.5"
     
-    # CORS
-    CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS - Add your GitHub Pages URL and any other frontend URLs
+    CORS_ORIGINS: list = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://astinaam-webtools.github.io",
+    ]
     
     class Config:
         env_file = ".env"

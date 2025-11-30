@@ -10,10 +10,10 @@ services:
       - ./uploads:/app/uploads
     environment:
       - DEBUG=False
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY:-super-secret-key11221}
       - DATABASE_URL=sqlite+aiosqlite:///./data/medical_history.db
       - UPLOAD_DIR=/app/uploads
-      - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000","https://yourusername.github.io"]
+      - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000","https://astinaam-webtools.github.io"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]

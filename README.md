@@ -261,6 +261,8 @@ The system uses OpenRouter's AI models (default: Google Gemini Flash 1.5) to par
 
 ### Backend Deployment
 
+> **Important:** If hosting the frontend on GitHub Pages (HTTPS), your backend **must** also use HTTPS. Browsers block HTTP requests from HTTPS pages (mixed content). Use Caddy or Nginx with SSL certificates.
+
 #### Option 1: Docker (Recommended)
 
 **Quick Start with Docker Compose:**
@@ -387,7 +389,172 @@ sudo systemctl status medihistory
    - `SECRET_KEY`: Generate a secure random string
    - `CORS_ORIGINS`: Your frontend URL
 
-### Nginx Reverse Proxy (Optional)
+### Caddy Reverse Proxy (Recommended)
+
+Caddy is the easiest way to add HTTPS to your backend. It automatically obtains and renews SSL certificates from Let's Encrypt.
+
+#### Install Caddy
+
+**Debian/Ubuntu/Raspberry Pi:**
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+#### Configuration Options
+
+**Option 1: With a Domain (Recommended for Production)**
+
+If you have a domain pointing to your server:
+
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+
+```
+api.yourdomain.com {
+    reverse_proxy localhost:8000
+}
+```
+
+**Option 2: With Static IP using nip.io (No Domain Required)**
+
+nip.io provides free wildcard DNS. Replace `YOUR_PUBLIC_IP` with your actual IP:
+
+```
+YOUR_PUBLIC_IP.nip.io {
+    reverse_proxy localhost:8000
+}
+```
+
+Example: `203.0.113.50.nip.io`
+
+> **Note:** This requires ports 80 and 443 to be accessible from the internet for Let's Encrypt certificate validation.
+
+**Option 3: With DuckDNS (Free Dynamic DNS)**
+
+1. Create a free subdomain at https://www.duckdns.org
+2. Point it to your IP
+3. Configure Caddy:
+
+```
+yourname.duckdns.org {
+    reverse_proxy localhost:8000
+}
+```
+
+**Option 4: Local Network Only (Self-Signed Certificate)**
+
+For testing on local network without internet access:
+
+```
+192.168.1.100 {
+    tls internal
+    reverse_proxy localhost:8000
+}
+```
+
+> **Warning:** Browsers will show a certificate warning. You must visit the URL directly and accept the certificate before it will work from the GitHub Pages frontend.
+
+**Option 5: Local HTTP Only (Development)**
+
+For local development without HTTPS:
+
+```
+:80 {
+    reverse_proxy localhost:8000
+}
+```
+
+> **Warning:** This won't work with GitHub Pages (HTTPS) due to mixed content blocking. Use only with locally-hosted frontend.
+
+#### Apply Configuration
+
+```bash
+# Validate configuration
+caddy validate --config /etc/caddy/Caddyfile
+
+# Reload Caddy
+sudo systemctl reload caddy
+
+# Check status
+sudo systemctl status caddy
+
+# View logs
+sudo journalctl -u caddy -f
+```
+
+#### Firewall Configuration
+
+```bash
+# Allow HTTP and HTTPS
+sudo ufw allow 80
+sudo ufw allow 443
+```
+
+#### Router Port Forwarding
+
+If running behind a NAT (home network), forward these ports to your server:
+- Port 80 (HTTP) → Server's local IP
+- Port 443 (HTTPS) → Server's local IP
+
+#### Complete Raspberry Pi Setup Example
+
+```bash
+# 1. Install Caddy
+sudo apt update && sudo apt install -y caddy
+
+# 2. Clone and setup backend
+cd ~
+git clone https://github.com/astinaam-webtools/medical-history.git
+cd medical-history/backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+mkdir -p data uploads
+
+# 3. Create backend service
+sudo tee /etc/systemd/system/medihistory.service << 'EOF'
+[Unit]
+Description=MediHistory API
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/medical-history/backend
+Environment=PATH=/home/pi/medical-history/backend/venv/bin
+ExecStart=/home/pi/medical-history/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable medihistory
+sudo systemctl start medihistory
+
+# 4. Configure Caddy (replace with your domain/IP)
+sudo tee /etc/caddy/Caddyfile << 'EOF'
+yourname.duckdns.org {
+    reverse_proxy localhost:8000
+}
+EOF
+
+sudo systemctl reload caddy
+
+# 5. Open firewall
+sudo ufw allow 80
+sudo ufw allow 443
+```
+
+Your backend will be available at: `https://yourname.duckdns.org`
+
+### Nginx Reverse Proxy (Alternative)
 
 For production with HTTPS:
 
